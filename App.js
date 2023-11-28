@@ -1,92 +1,109 @@
 import { StatusBar } from 'expo-status-bar';
-import { KeyboardAvoidingView, StyleSheet, Keyboard, Text, View, ImageBackground } from 'react-native';
+import { KeyboardAvoidingView, StyleSheet, Keyboard, Text, View } from 'react-native';
 import Task from './components/Task';
 import { Platform } from 'react-native';
 import { TextInput } from 'react-native';
 import { TouchableOpacity } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
-  const [task, setTask] = useState();
+  const [task, setTask] = useState('');
   const [taskItems, setTaskItems] = useState([]);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     Keyboard.dismiss();
-    setTaskItems([...taskItems, task])
-    setTask(null);
+    const newTaskItems = [...taskItems, task];
+    setTaskItems(newTaskItems);
+    setTask('');
+
+    try {
+      await AsyncStorage.setItem('taskItems', JSON.stringify(newTaskItems));
+    } catch (error) {
+      console.error('Error saving tasks to AsyncStorage:', error);
+    }
   }
 
-  const completeTask = (index) => {
+  const completeTask = async (index) => {
     let itemsCopy = [...taskItems];
     itemsCopy.splice(index, 1);
     setTaskItems(itemsCopy);
+
+    try {
+      await AsyncStorage.setItem('taskItems', JSON.stringify(itemsCopy));
+    } catch (error) {
+      console.error('Error saving tasks to AsyncStorage:', error);
+    }
   }
 
+  const loadTasks = async () => {
+    try {
+      const savedTasks = await AsyncStorage.getItem('taskItems');
+      if (savedTasks !== null) {
+        setTaskItems(JSON.parse(savedTasks));
+      }
+    } catch (error) {
+      console.error('Error loading tasks from AsyncStorage:', error);
+    }
+  }
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
   return (
-    <ImageBackground
-      source={require('./assets/jagoda.gif')}
-      style={styles.background}
-    >
-      <View style={styles.container}>
-        {/*Today's Tasks*/}
-        <View style={styles.taskwrapper}>
-          <Text style={styles.sectionTitle}>Today's Tasks</Text>
+    <View style={styles.container}>
 
-          <View style={styles.items}>
-            {/* This is where the tasks will go */}
-            {
-              taskItems.map((item, index) => {
-                return (
-                  <TouchableOpacity key={index} onPress={() => completeTask(index)} >
-                    <Task  text={item} />
-                  </TouchableOpacity>
-                )
-              })
-            }
-          </View>
+      {/* Today's Tasks */}
+      <View style={styles.taskwrapper}>
+        <Text style={styles.sectionTitle}>Today's Tasks</Text>
+
+        <View style={styles.items}>
+          {/* This is where the tasks will go */}
+          {taskItems.map((item, index) => (
+            <TouchableOpacity key={index} onPress={() => completeTask(index)}>
+              <Task text={item} />
+            </TouchableOpacity>
+          ))}
         </View>
-
-        {/* Write a task */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.writeTaskWrapper}
-        >
-          <TextInput
-            style={styles.input}
-            placeholder={'Write a task'}
-            value={task}
-            onChangeText={text => setTask(text)}
-          />
-
-          <TouchableOpacity onPress={() => handleAddTask()}>
-            <View style={styles.addWrapper}>
-              <Text style={styles.addText}>+</Text>
-            </View>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
       </View>
-    </ImageBackground>
+
+      {/* Write a task */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.writeTaskWrapper}
+      >
+        <TextInput
+          style={styles.input}
+          placeholder={'Write a task'}
+          value={task}
+          onChangeText={(text) => setTask(text)}
+          onSubmitEditing={() => handleAddTask()} // This line is added
+        />
+
+        <TouchableOpacity onPress={() => handleAddTask()}>
+          <View style={styles.addWrapper}>
+            <Text style={styles.addText}>+</Text>
+          </View>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-    justifyContent: 'center',
-  },
   container: {
     flex: 1,
-   
+    backgroundColor: '#E8EAED',
   },
   taskwrapper: {
     paddingTop: 80,
-    paddingHorizontal: 20, 
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000000',
   },
   items: {
     marginTop: 30,
